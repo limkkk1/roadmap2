@@ -1,15 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Globe, MessageCircle, Users, Download } from 'lucide-react';
+import { Globe, MessageCircle, Users, Download, Loader2 } from 'lucide-react';
 
 // Cast motion.div to any to avoid TypeScript errors with specific prop combinations
 const MotionDiv = motion.div as any;
 
 interface Props {
   onDownload: () => void;
+  isGenerating?: boolean;
 }
 
-export const Header: React.FC<Props> = ({ onDownload }) => {
+export const Header: React.FC<Props> = ({ onDownload, isGenerating = false }) => {
+  // Original Notion URL
+  const originalLogoUrl = "https://img.notionusercontent.com/s3/prod-files-secure%2F98cf5535-6f34-81f1-a9ad-000323f7d8ed%2F0c535e01-70e2-4449-9d58-3c2c1005550e%2Fico.ico/size/?exp=1763721418&sig=Whsb3yiGMl2UjlaiaTioZe2Cz8NeIT9z5KlfucMQIlg&id=2b1f5535-6f34-80e1-845b-e0c923282849&table=block&userId=27ad872b-594c-81ce-8d37-0002a5bdf2db";
+  
+  // Use wsrv.nl as a proxy to handle CORS and image format conversion (ico -> png/webp)
+  // This is crucial for html-to-image to work correctly without tainting the canvas
+  const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(originalLogoUrl)}&w=200&output=png`;
+
   return (
     <header className="pt-32 pb-40 px-6 max-w-7xl mx-auto text-center md:text-left relative z-10">
       <MotionDiv 
@@ -22,18 +30,22 @@ export const Header: React.FC<Props> = ({ onDownload }) => {
         <div className="absolute top-0 right-0 p-4 md:p-0 screenshot-exclude">
             <button 
                 onClick={onDownload}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 rounded-lg text-blue-300 hover:text-white transition-all text-sm backdrop-blur-md"
+                disabled={isGenerating}
+                className={`flex items-center gap-2 px-4 py-2 bg-blue-600/20 border border-blue-500/50 rounded-lg text-blue-300 transition-all text-sm backdrop-blur-md ${
+                  isGenerating ? 'opacity-70 cursor-wait' : 'hover:bg-blue-600/40 hover:text-white'
+                }`}
             >
-                <Download size={16} />
-                保存路线图
+                {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                {isGenerating ? '生成中...' : '保存路线图'}
             </button>
         </div>
 
         {/* Logo Container */}
         <div className="w-28 h-28 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.2)] mx-auto md:mx-0 overflow-hidden p-4 relative group">
             <img 
-              src="https://img.notionusercontent.com/s3/prod-files-secure%2F98cf5535-6f34-81f1-a9ad-000323f7d8ed%2F0c535e01-70e2-4449-9d58-3c2c1005550e%2Fico.ico/size/?exp=1763721418&sig=Whsb3yiGMl2UjlaiaTioZe2Cz8NeIT9z5KlfucMQIlg&id=2b1f5535-6f34-80e1-845b-e0c923282849&table=block&userId=27ad872b-594c-81ce-8d37-0002a5bdf2db" 
+              src={proxyUrl}
               alt="Nexus Logo" 
+              crossOrigin="anonymous"
               className="w-full h-full object-contain opacity-90 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)] group-hover:scale-110 transition-transform duration-500"
             />
         </div>

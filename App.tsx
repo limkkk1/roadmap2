@@ -1,18 +1,20 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { toPng } from 'html-to-image';
 import { Header } from './components/Header';
 import { RoadmapItem } from './components/RoadmapItem';
 import { INITIAL_ROADMAP_DATA } from './constants';
 
 const App: React.FC = () => {
-  // Since we removed the upload feature, we can use the constant data directly.
   const items = INITIAL_ROADMAP_DATA;
   const mainRef = useRef<HTMLDivElement>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleDownload = useCallback(() => {
-    if (mainRef.current === null) {
+  const handleDownload = useCallback(async () => {
+    if (mainRef.current === null || isGenerating) {
       return;
     }
+
+    setIsGenerating(true);
 
     // Define filter to exclude elements we don't want in the screenshot
     const filter = (node: HTMLElement) => {
@@ -20,21 +22,38 @@ const App: React.FC = () => {
         return !exclusionClasses.some((classname) => node.classList?.contains(classname));
     }
 
-    toPng(mainRef.current, { 
-        cacheBust: true, 
-        backgroundColor: '#02040a',
-        filter: filter
-    })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'nexus-roadmap.png';
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => {
-        console.error('Screenshot failed', err);
+    try {
+      // Small delay to ensure UI is stable
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const dataUrl = await toPng(mainRef.current, { 
+          cacheBust: true, 
+          backgroundColor: '#02040a',
+          filter: filter,
+          skipFonts: true, // Critical: Skip font embedding to avoid CORS "cssRules" errors
+          pixelRatio: 2,   // High quality
+          preferredFontFormat: 'woff2',
+          // Fix: Explicitly set dimensions to content size to avoid capturing viewport scrollbars
+          width: mainRef.current.scrollWidth, 
+          height: mainRef.current.scrollHeight,
+          style: {
+            overflow: 'hidden', // Force hide any scrollbars in the clone
+            height: 'auto',     // Ensure container expands fully
+            maxHeight: 'none',  // Remove any height constraints
+          }
       });
-  }, [mainRef]);
+
+      const link = document.createElement('a');
+      link.download = 'nexus-roadmap.png';
+      link.href = dataUrl;
+      link.click();
+    } catch (err: any) {
+      console.error('Screenshot failed', err);
+      alert('保存图片失败: ' + (err.message || '未知错误。可能是因为跨域资源限制。'));
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [mainRef, isGenerating]);
 
   return (
     <div ref={mainRef} className="min-h-screen bg-[#02040a] relative overflow-x-hidden selection:bg-blue-500/30 selection:text-blue-200 font-sans">
@@ -47,7 +66,7 @@ const App: React.FC = () => {
       <div className="absolute bottom-[-10%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/10 rounded-full blur-[130px] -z-0 pointer-events-none" />
 
       <main className="relative z-10 pb-48">
-        <Header onDownload={handleDownload} />
+        <Header onDownload={handleDownload} isGenerating={isGenerating} />
 
         <div className="max-w-[90rem] mx-auto px-4 md:px-8 relative">
           {/* 
